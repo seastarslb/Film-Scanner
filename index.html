@@ -3,143 +3,51 @@
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Film QR Scanner</title>
-
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 20px;
-      background: #f5f6f8;
-      color: #222;
-    }
-
-    .app {
-      max-width: 500px;
-      margin: auto;
-      background: white;
-      padding: 24px;
-      border-radius: 16px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-    }
-
-    h1 {
-      margin-top: 0;
-    }
-
-    #reader {
-      width: 100%;
-      margin-top: 20px;
-    }
-
-    .result {
-      margin-top: 15px;
-      padding: 12px;
-      border-radius: 8px;
-      background: #f5f6f8;
-    }
+    body{font-family:Arial,sans-serif;margin:0;padding:20px;background:#f5f6f8;color:#222}
+    .app{max-width:500px;margin:auto;background:#fff;padding:24px;border-radius:16px;box-shadow:0 2px 10px rgba(0,0,0,.08)}
+    h1{margin-top:0} #reader{width:100%;margin-top:20px}.result{margin-top:15px;padding:12px;border-radius:8px;background:#f5f6f8}
   </style>
 </head>
-
 <body>
-
-<div class="app">
-
-  <h1>Scan Film QR</h1>
-
-  <div id="reader"></div>
-
-  <div id="result" class="result">
-    Starting camera...
-  </div>
-
-</div>
-
+<div class="app"><h1>Scan Film QR</h1><div id="reader"></div><div id="result" class="result">Starting camera...</div></div>
 <script>
-
-let scanner = null;
-
-function startScanner() {
-
-  scanner = new Html5Qrcode("reader");
-
-  scanner.start(
-    { facingMode: "environment" },
-
-    {
-      fps: 10,
-      qrbox: {
-        width: 250,
-        height: 250
-      }
-    },
-
-    function(decodedText) {
-
-      let filmId = "";
-
-      try {
-
-        const url = new URL(decodedText);
-
-        filmId =
-          url.searchParams.get("entry.1287074709") || "";
-
-      } catch (error) {
-
-        filmId = "";
-
-      }
-
-      if (!filmId) {
-
-        document.getElementById("result").textContent =
-          "QR detected, but no Film ID was found.";
-
-        return;
-      }
-
-      document.getElementById("result").textContent =
-  "Film detected: " + filmId;
-
-scanner.stop().then(function() {
-
-  const params = new URLSearchParams(window.location.search);
-  const returnUrl = params.get("return");
-
-  if (returnUrl) {
-
-    window.location.href =
-      returnUrl +
-      (returnUrl.includes("?") ? "&" : "?") +
-      "film=" +
-      encodeURIComponent(filmId);
-
+let scanner=null, finished=false;
+function extractFilmId(decodedText){
+  const raw=(decodedText||'').trim();
+  if(!raw) return '';
+  try{
+    const u=new URL(raw);
+    // New inventory QR format first; old Google Form QRs remain compatible.
+    return (u.searchParams.get('film') || u.searchParams.get('entry.1287074709') || '').trim();
+  }catch(e){
+    // Plain Film ID QR codes are also accepted.
+    return raw;
   }
-
-});
-
-    },
-
-    function(errorMessage) {
-
-      // Normal scanning errors are ignored.
-
-    }
-  )
-
-  .catch(function(error) {
-
-    document.getElementById("result").textContent =
-      "Camera could not start: " + error;
-
-  });
 }
-
+async function onScan(decodedText){
+  if(finished) return;
+  const filmId=extractFilmId(decodedText);
+  if(!filmId){ document.getElementById('result').textContent='QR detected, but no Film ID was found.'; return; }
+  finished=true;
+  document.getElementById('result').textContent='Film detected: '+filmId;
+  try{ if(scanner) await scanner.stop(); }catch(e){}
+  const params=new URLSearchParams(location.search), returnUrl=params.get('return');
+  if(returnUrl){
+    const u=new URL(returnUrl);
+    u.searchParams.set('film',filmId);
+    location.href=u.toString();
+  } else {
+    document.getElementById('result').textContent='Film detected: '+filmId+' (no return URL supplied)';
+  }
+}
+function startScanner(){
+  scanner=new Html5Qrcode('reader');
+  scanner.start({facingMode:'environment'},{fps:10,qrbox:{width:250,height:250}},onScan,()=>{})
+    .catch(err=>document.getElementById('result').textContent='Camera could not start: '+err);
+}
 startScanner();
-}
 </script>
-
 </body>
 </html>
