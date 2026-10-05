@@ -101,13 +101,24 @@ function startScanner() {
       }
 
       document.getElementById("result").textContent =
-        "Film detected: " + filmId;
+  "Film detected: " + filmId;
 
-      scanner.stop().then(function() {
+scanner.stop().then(function() {
 
-        // We'll connect this back to the inventory app next.
+  const params = new URLSearchParams(window.location.search);
+  const returnUrl = params.get("return");
 
-      });
+  if (returnUrl) {
+
+    window.location.href =
+      returnUrl +
+      (returnUrl.includes("?") ? "&" : "?") +
+      "film=" +
+      encodeURIComponent(filmId);
+
+  }
+
+});
 
     },
 
