@@ -1,46 +1,21 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Film QR Scanner</title>
 
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-  >
-
-  <title>Vinyl Film Inventory</title>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
   <style>
-    html,
     body {
-      width: 100%;
-      height: 100%;
+      font-family: Arial, sans-serif;
       margin: 0;
-      padding: 0;
-      overflow: hidden;
-      background: #eef0ea;
-    }
-
-    #appFrame {
-      display: block;
-      width: 100%;
-      height: 100%;
-      border: 0;
-    }
-
-    #scannerPage {
-      display: none;
-      box-sizing: border-box;
-      width: 100%;
-      min-height: 100%;
       padding: 20px;
-      overflow-y: auto;
       background: #f5f6f8;
       color: #222;
-      font-family: Arial, sans-serif;
     }
 
-    .scanner-app {
+    .app {
       max-width: 500px;
       margin: auto;
       background: white;
@@ -49,7 +24,7 @@
       box-shadow: 0 2px 10px rgba(0,0,0,0.08);
     }
 
-    .scanner-app h1 {
+    h1 {
       margin-top: 0;
     }
 
@@ -65,154 +40,105 @@
       background: #f5f6f8;
     }
   </style>
-
-  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 </head>
 
 <body>
 
-<!-- Normal use: mobile inventory wrapper -->
-<iframe
-  id="appFrame"
-  title="Vinyl Film Inventory"
-  allow="camera; microphone"
-></iframe>
+<div class="app">
 
-<!-- QR scanner mode -->
-<div id="scannerPage">
+  <h1>Scan Film QR</h1>
 
-  <div class="scanner-app">
+  <div id="reader"></div>
 
-    <h1>Scan Film QR</h1>
-
-    <div id="reader"></div>
-
-    <div id="result" class="result">
-      Starting camera...
-    </div>
-
+  <div id="result" class="result">
+    Starting camera...
   </div>
 
 </div>
 
 <script>
 
-const APPS_SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbylHdQP6cQhUuSFUFc-hwBCTR0XV5OTW8P52ZB1MsKgzoNKKqCHm4q-ykiqJMcDt1oyfQ/exec";
+let scanner = null;
 
-const params = new URLSearchParams(window.location.search);
-const returnUrl = params.get("return");
+function startScanner() {
 
+  scanner = new Html5Qrcode("reader");
 
-// ============================================================
-// NORMAL MODE — SHOW INVENTORY APP
-// ============================================================
+  scanner.start(
+    { facingMode: "environment" },
 
-if (!returnUrl) {
+    {
+      fps: 10,
+      qrbox: {
+        width: 250,
+        height: 250
+      }
+    },
 
-  const appUrl = new URL(APPS_SCRIPT_URL);
+    function(decodedText) {
 
-  const film = params.get("film");
-  const scan = params.get("scan");
+      let filmId = "";
 
-  if (film) {
-    appUrl.searchParams.set("film", film);
-  }
+      try {
 
-  if (scan) {
-    appUrl.searchParams.set("scan", scan);
-  }
+        const url = new URL(decodedText);
 
-  document.getElementById("appFrame").src =
-    appUrl.toString();
+        filmId =
+          url.searchParams.get("entry.1287074709") || "";
 
-}
+      } catch (error) {
 
-
-// ============================================================
-// SCANNER MODE — PRESERVE EXISTING QR WORKFLOW
-// ============================================================
-
-else {
-
-  document.getElementById("appFrame").style.display = "none";
-  document.getElementById("scannerPage").style.display = "block";
-
-  let scanner = null;
-
-  function startScanner() {
-
-    scanner = new Html5Qrcode("reader");
-
-    scanner.start(
-      { facingMode: "environment" },
-
-      {
-        fps: 10,
-        qrbox: {
-          width: 250,
-          height: 250
-        }
-      },
-
-      function(decodedText) {
-
-        let filmId = "";
-
-        try {
-
-          const url = new URL(decodedText);
-
-          filmId =
-            url.searchParams.get("entry.1287074709") || "";
-
-        } catch (error) {
-
-          filmId = "";
-
-        }
-
-        if (!filmId) {
-
-          document.getElementById("result").textContent =
-            "QR detected, but no Film ID was found.";
-
-          return;
-        }
-
-        document.getElementById("result").textContent =
-          "Film detected: " + filmId;
-
-        scanner.stop().then(function() {
-
-          window.location.href =
-            returnUrl +
-            (returnUrl.includes("?") ? "&" : "?") +
-            "film=" +
-            encodeURIComponent(filmId);
-
-        });
-
-      },
-
-      function(errorMessage) {
-
-        // Normal scanning errors are ignored.
+        filmId = "";
 
       }
 
-    ).catch(function(error) {
+      if (!filmId) {
+
+        document.getElementById("result").textContent =
+          "QR detected, but no Film ID was found.";
+
+        return;
+      }
 
       document.getElementById("result").textContent =
-        "Camera could not start: " + error;
+  "Film detected: " + filmId;
 
-    });
+scanner.stop().then(function() {
+
+  const params = new URLSearchParams(window.location.search);
+  const returnUrl = params.get("return");
+
+  if (returnUrl) {
+
+    window.location.href =
+      returnUrl +
+      (returnUrl.includes("?") ? "&" : "?") +
+      "film=" +
+      encodeURIComponent(filmId);
+
   }
 
-  startScanner();
+});
 
+    },
+
+    function(errorMessage) {
+
+      // Normal scanning errors are ignored.
+
+    }
+  )
+
+  .catch(function(error) {
+
+    document.getElementById("result").textContent =
+      "Camera could not start: " + error;
+
+  });
 }
 
+startScanner();
+}
 </script>
 
 </body>
